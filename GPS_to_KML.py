@@ -42,6 +42,9 @@ class FileHandler(object):
                 # Check what this line conveys
                 if gprmc.search(line):
                     sub_data["gprmc"] = line.strip("\n")
+                    if "formatted" not in sub_data.keys():
+                        sub_data["formatted"] = dict()
+                    sub_data["formatted"]["time"] = float(line.split(",")[1])
                 
                 if gpgga.search(line):
                     sub_data["gpgga"] = line.strip("\n") 
@@ -54,9 +57,29 @@ class FileHandler(object):
                     # so I can make a new dict out of it
                     for token in tokens:
                         key,value = token.split("=") # Split the data into key and value
-                        formatted[key] = float(value.strip("\n")) # Strip newline and convert value to float 
-                    
-                    sub_data["formatted"] = formatted 
+                        formatted[key] = float(value.strip("\n")) # Strip newline and convert value to float
+
+                    if "formatted" not in sub_data.keys():
+                        sub_data["formatted"] = formatted
+                    else:
+                        sub_data["formatted"].update(formatted)
+
+                    #In case there was no gprmc to get time from, take it from gpgga instead
+                    if "time" not in sub_data["formatted"].keys():
+                        sub_data["formatted"]["time"] = float(sub_data["gpgga"].split(",")[1])
+
+                    # Add a speed delta (acceleration) to help us identify stops
+                    if len(self.gps_data) == 0:
+                        sub_data["formatted"]["delta_speed"] = sub_data["formatted"]["speed"]
+                    else:
+                        delta_time = (sub_data["formatted"]["time"] - self.gps_data[-1]["formatted"]["time"])
+                        delta_velocity = (sub_data["formatted"]["speed"] - self.gps_data[-1]["formatted"]["speed"])
+                        if delta_time == 0:
+                            sub_data["formatted"]["delta_speed"] = 0
+                        else:
+                            sub_data["formatted"]["delta_speed"] = delta_velocity / delta_time
+
+
                     self.gps_data.append(sub_data)
                     sub_data = {}
     
@@ -366,4 +389,5 @@ def main():
     fileHandler.create_kml(raw)
     """
 
-main()
+if __name__ == "__main__":
+    main()
