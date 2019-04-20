@@ -8,9 +8,7 @@ Created on Sun Mar 24 11:17:31 2019
 Objective: Convert a txt file containing GPS data into a .KML file
 """
 import re
-from copy import copy 
 from os import listdir
-from os.path import isfile, join 
 
 
 class FileHandler(object):
