@@ -1,5 +1,6 @@
 """
 File: Helper functions for GPS Data
+Author: JosephGolden, JenniferLiu
 """
 
 import pandas as pd
