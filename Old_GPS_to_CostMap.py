@@ -53,6 +53,13 @@ def stops_kml(stops, filename):
 
     kml_output.close()
 
+def left_turn(gps_data):
+    """
+    Guess when there is a left turn
+    :param gps_data:
+    :return:
+    """
+
 
 
 
@@ -69,11 +76,11 @@ for txt in listdir(path):
 
     # Initialise a file handler object
     # Passing in the txt file
-    files.append(FileHandler(raw))
+    files.append(FileHandler())
 
     # Reformat the GPS Data into easy
     # to use data points later
-    files[-1].parse_data()
+    files[-1].parse_data(raw)
 
     # Remove Parked vehicle
     #files[-1].remove_parked_vehicle()
