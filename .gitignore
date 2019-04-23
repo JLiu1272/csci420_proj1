@@ -3,7 +3,8 @@
 ###############
 Txt/
 Kml/
-
+__pycache__/
+Txt_Test/
 
 #########
 # Files #
