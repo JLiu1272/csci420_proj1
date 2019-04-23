@@ -42,9 +42,13 @@ def convert_to_kml(file_name, dfs, route_files):
     # into 1 single DataFrame Object
     for index, df in enumerate(dfs):
         complete_dfs = pd.concat([complete_dfs, df], axis=0)
+        #segment = []
+        #for i2 in range(df.shape[0]):
+        #    segment.append((df['lon'][i2],df['lat'][i2],df['speed'][i2]))
+        #segments.append(segment)
 
         medoids, clusters = DBScan_Cluster(df.values)
-
+        
         # Create a placemark for every stop sign found
         for medoid_id in range(1, len(medoids)):
             print(medoids['lon'][medoid_id])
@@ -83,7 +87,7 @@ def convert_to_kml(file_name, dfs, route_files):
         # Set Route Name
         route_name = 'Route '
 
-        lin = kml.newlinestring(name=route_name, coords=sorted_segments)
+        lin = kml.newlinestring(name=route_name, coords=segment)
         lin.style.linestyle.color = simplekml.Color.yellow
         lin.style.linestyle.width = 5
         lin.altitudemode = simplekml.AltitudeMode.relativetoground
