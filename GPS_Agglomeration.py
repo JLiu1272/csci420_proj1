@@ -35,7 +35,7 @@ def DBScan_Cluster(coords):
     # A list extracting only the Lon and Lat Coordinates
     lon_lat_coords = [(coord[1], coord[2]) for coord in coords]
 
-    db = DBSCAN(eps=0.00001, min_samples=2, algorithm='auto', metric='manhattan').fit(lon_lat_coords)
+    db = DBSCAN(eps=0.0001, min_samples=15, algorithm='auto', metric='manhattan').fit(lon_lat_coords)
     cluster_labels = db.labels_
     num_clusters = len(set(cluster_labels))
 
@@ -63,7 +63,10 @@ def sort_points(coords):
     :param coords:
     :return:
     '''
-    return pd.DataFrame(sorted(coords, key=lambda coord: [coord[2], coord[1]]), columns=['time', 'lon', 'lat', 'speed'])
+    agglom_coords = [coord[0] for coord in coords]
+    #print(agglom_coords)
+    #return sorted(agglom_coords, key=lambda coord: [coord[0], coord[1]]), columns=['lon', 'lat', 'speed'])
+    return sorted(agglom_coords, key=lambda coord: [coord[0], coord[1]])
 
 def perpendicular_dist(x1, y1, x2, y2, x3, y3):
     px = x2 - x1

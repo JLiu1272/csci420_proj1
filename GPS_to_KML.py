@@ -43,48 +43,51 @@ def convert_to_kml(file_name, dfs, route_files):
     for index, df in enumerate(dfs):
         complete_dfs = pd.concat([complete_dfs, df], axis=0)
 
-    # Use DBScan to find potential stopping
-    # points
-    medoid, clusters = DBScan_Cluster(dfs[0].values)
+        medoids, clusters = DBScan_Cluster(df.values)
 
-    # Create a placemark for every stop sign found
-    for cluster in clusters:
-        # Only create a stop sign if the cluster
-        # is not empty
-        if len(cluster) > 0:
+        # Create a placemark for every stop sign found
+        for medoid_id in range(1, len(medoids)):
+            print(medoids['lon'][medoid_id])
+            # Only create a stop sign if the cluster
+            # is not empty
             pnt = kml.newpoint(name="Stop Light")
-            pnt.coords = [(cluster[-1][1], cluster[-1][2], cluster[-1][3])]
+            pnt.coords = [(medoids['lon'][medoid_id], medoids['lat'][medoid_id], medoids['speed'][medoid_id])]
             pnt.style.labelstyle.color = simplekml.Color.yellow
             pnt.style.labelstyle.scale = 1
 
+    # Use DBScan to find potential stopping
+    # points
+    print("Starting K-Means")
     # Run K-Means to merge points that are
     # next to each other. This is to
     # resolve the issue with multiple GPS Data having
     # very similar paths, but due to DOS, it is slightly off
-    kmeans_clusters = k_means(complete_dfs.values, 1500)
+    kmeans_clusters = k_means(complete_dfs.values, 600)
 
     # For each medoid found, add it to the full segments
     for index in range(1, kmeans_clusters.shape[0]):
         segments.append([(kmeans_clusters['lon'][index], kmeans_clusters['lat'][index], kmeans_clusters['speed'][index])])
         #complete_dfs = pd.concat([complete_dfs, cluster], axis=0)
 
+    sorted_segments = sort_points(segments)
+    print(sorted_segments[:10])
     print(len(segments))
-    print(segments[:10])
+    #print(segments[:10])
 
     # Due to issue with line string creating
     # attempting to connecting
     # every possible points. There were routes
     # that didn't make sense
     # so for every path, create a new linestring object
-    for idx, segment in enumerate(segments):
-        # Set Route Name
-        route_name = 'Route '
+    #for idx, segment in enumerate(segments):
+    # Set Route Name
+    route_name = 'Route '
 
-        lin = kml.newlinestring(name=route_name, coords=segment)
-        lin.style.linestyle.color = simplekml.Color.yellow
-        lin.style.linestyle.width = 3
-        lin.altitudemode = simplekml.AltitudeMode.relativetoground
-        lin.extrude = 1
+    lin = kml.newlinestring(name=route_name, coords=sorted_segments)
+    lin.style.linestyle.color = simplekml.Color.yellow
+    lin.style.linestyle.width = 5
+    lin.altitudemode = simplekml.AltitudeMode.relativetoground
+    lin.extrude = 1
 
     # Save the final KML File
     if file_name.__contains__('/'):
