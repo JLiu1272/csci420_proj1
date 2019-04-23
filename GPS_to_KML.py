@@ -69,8 +69,8 @@ def convert_to_kml(file_name, dfs, route_files):
         segments.append([(kmeans_clusters['lon'][index], kmeans_clusters['lat'][index], kmeans_clusters['speed'][index])])
         #complete_dfs = pd.concat([complete_dfs, cluster], axis=0)
 
-    sorted_segments = sort_points(segments)
-    print(sorted_segments[:10])
+    #sorted_segments = sort_points(segments)
+    #print(sorted_segments[:10])
     print(len(segments))
     #print(segments[:10])
 
@@ -79,15 +79,15 @@ def convert_to_kml(file_name, dfs, route_files):
     # every possible points. There were routes
     # that didn't make sense
     # so for every path, create a new linestring object
-    #for idx, segment in enumerate(segments):
-    # Set Route Name
-    route_name = 'Route '
+    for idx, segment in enumerate(segments):
+        # Set Route Name
+        route_name = 'Route '
 
-    lin = kml.newlinestring(name=route_name, coords=sorted_segments)
-    lin.style.linestyle.color = simplekml.Color.yellow
-    lin.style.linestyle.width = 5
-    lin.altitudemode = simplekml.AltitudeMode.relativetoground
-    lin.extrude = 1
+        lin = kml.newlinestring(name=route_name, coords=sorted_segments)
+        lin.style.linestyle.color = simplekml.Color.yellow
+        lin.style.linestyle.width = 5
+        lin.altitudemode = simplekml.AltitudeMode.relativetoground
+        lin.extrude = 1
 
     # Save the final KML File
     if file_name.__contains__('/'):
