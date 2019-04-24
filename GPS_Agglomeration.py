@@ -47,12 +47,14 @@ def DBScan_Cluster(coords):
     total_pts = len(cluster_labels)
     print("Total points in cluster")
     print(total_pts)
+
+    print("Medoid from DBScan")
     medoids = get_medoid(clusters)
     print(medoids.head(10))
 
     return medoids, clusters
 
-
+# Another garbage function...
 def sort_points(coords):
     '''
     Sorts the coordinates from smallest to largest.
@@ -67,31 +69,6 @@ def sort_points(coords):
     #print(agglom_coords)
     #return sorted(agglom_coords, key=lambda coord: [coord[0], coord[1]]), columns=['lon', 'lat', 'speed'])
     return sorted(agglom_coords, key=lambda coord: [coord[0], coord[1]])
-
-def perpendicular_dist(x1, y1, x2, y2, x3, y3):
-    px = x2 - x1
-    py = y2 - y1
-
-    norm = px * px + py * py
-
-    u = ((x3 - x1) * px + (y3 - y1) * py) / float(norm)
-
-    if u > 1:
-        u = 1
-    elif u < 0:
-        u = 0
-
-    x = x1 + u * px
-    y = y1 + u * py
-
-    dx = x - x3
-    dy = y - y3
-
-    dist = (dx * dx + dy * dy) ** .5
-
-    return dist
-
-
 
 def get_medoid(clusters):
     '''
@@ -116,6 +93,8 @@ def get_medoid(clusters):
             # data
             lon_lat_clust = np.array([[coord[1], coord[2]] for coord in cluster])
             centroid = (MultiPoint(lon_lat_clust).centroid.x, MultiPoint(lon_lat_clust).centroid.y)
+
+            # Find a real point that is closest to the centroid
             medoid = find_minDist(centroid, lon_lat_clust)
             medoids['time'].append(np.mean(cluster[:,0]))
             medoids['lon'].append(medoid[0])
@@ -161,7 +140,12 @@ def find_minDist(centroid, cluster):
     return min_medoid
 
 def convert_counter(counter):
-
+    # Also a garbage function
+    # An auxilary used
+    # for agglomeration. Will soon
+    # be removed. But keeping it here
+    # just in case agglomeration
+    # is useful
     new_counter = {}
 
     for key in counter.keys():
@@ -190,9 +174,12 @@ def k_means(coords, n):
 
     # Extract the Lon, Lat values only for K Means clustering
     lon_lat_coords = np.array([[coord[1], coord[2]] for coord in coords])
+
+    # Cluster using K-Mean down to n clusters
     kmeans = KMeans(n_clusters=n)
     kmeans.fit(lon_lat_coords)
 
+    # Creates a unique set for the cluster points
     cluster_labels = kmeans.labels_
     num_clusters = len(set(cluster_labels))
 
@@ -206,6 +193,154 @@ def k_means(coords, n):
 
     return medoids
 
+def get_bearing(x_lon, x_lat, y_lon, y_lat):
+    '''
+    Given two GPS points, find the angle
+    between them using the Bearings formula
+    :param x_lon: longitude of point 1
+    :param x_lat: latitude of point 1
+    :param y_lon: longitude of point 2
+    :param y_lat: latitude of point 2
+    :return: The angle in Degree rounded to 2 decimal place
+    '''
+    dy = y_lat - x_lat
+    dx = math.cos(math.pi/180*x_lat)*(y_lon - x_lon)
+
+    return round(math.degrees(math.atan2(dy, dx)),2)
+
+def find_angle_between_pts(coords, n_space):
+    '''
+    Traverse through the coordinates and
+    compute the bearings between two points
+    :param coords:
+    :return:
+    '''
+
+    for idx in range(n_space, len(coords), n_space):
+
+        # Compute the cosine between
+        # between previous point and correct point
+
+        # X Coordinates
+        x_lon = coords[idx-n_space][0]
+        x_lat = coords[idx-n_space][1]
+        x_speed = coords[idx-n_space][2]
+
+
+        # Y Coordinates
+        y_lon = coords[idx][0]
+        y_lat = coords[idx][1]
+        y_speed = coords[idx][2]
+
+        angle = get_bearing(x_lon, x_lat, y_lon, y_lat)
+        delta_speed = abs(y_speed - x_speed)
+
+        # The speed direction tells me whether
+        # the vehicle is speeding up or slowing down
+        if y_speed < x_speed:
+            # If recent speed is slower
+            # then previous speed, it is
+            # decelerating
+            speed_dir = "d"
+        elif y_speed > x_speed:
+            # If recent speed is faster
+            # then previous speed, it is
+            # accelerating
+            speed_dir = "a"
+        else:
+            # If recent speed does not
+            # change, it is neutral
+            speed_dir = "n"
+
+        print("Delta Speed")
+        print(delta_speed)
+        print("Angle")
+        print(angle)
+        print("Speed Direction")
+        print(speed_dir)
+
+        # If bearing information exist,
+        # take the most updated one
+        if len(coords[idx]) >= 6:
+            coords[idx][3] = angle
+            coords[idx][4] = delta_speed
+            coords[idx][5] = speed_dir
+        else:
+            # No bearing found yet, create a
+            # new bearing field
+            coords[idx].append(angle)
+            coords[idx].append(delta_speed)
+            coords[idx].append(speed_dir)
+
+        print(coords[idx - n_space])
+        print(coords[idx])
+        print()
+
+    return coords
+
+def turn_classifier(coord):
+    '''
+    If the angle is greater than or equal to 100, and
+    the speed is slower than 15, and it is
+    deccelarting, it is considered a turn
+    :param coord:
+    :return:
+    '''
+
+    # Grab the respective components from the coordinate
+    lon, lat, speed, angle, delta_speed, speed_dir = coord[0], \
+                                                     coord[1], \
+                                                     coord[2], coord[3], coord[4], coord[5]
+
+    # If the angle is within the range of 100 and 60 inclusive
+    if angle >= 100:
+        # Is the change in speed from previous
+        # point to current point slower than 15 mph
+        if delta_speed <= 15:
+            # Is the vehicle deccelarting
+            if speed_dir == "d":
+                return True
+            else:
+                return False
+
+def classify_turn(coords):
+    '''
+    The main function to classify
+    the turns.
+    :param coords:
+    :return:
+    '''
+    n_space = 5
+
+    # This function will add the angle, change in speed, and
+    # mode of speed change (i.e acceleration, decceleration, neutral)
+    # to the respective point
+    bearings_added_coords = find_angle_between_pts(coords, n_space)
+
+    # A list to store the GPS points
+    # that it thinks is a turn
+    classified_turns = []
+    print("Starting to classify turns....")
+
+    # Traverse through every coordinate point
+    for idx in range(n_space, len(coords), n_space):
+
+        # Run the decision tree to see if
+        # this is a turn or not
+        if turn_classifier(bearings_added_coords[idx]):
+            # If classifier thinks it is a turn
+            # Add to the classified_turns list
+            lon, lat, speed = bearings_added_coords[idx][0], \
+                              bearings_added_coords[idx][1], \
+                              bearings_added_coords[idx][2]
+            classified_turns.append((lon, lat, speed))
+
+    return classified_turns
+
+# Garbage function
+# I tried to agglomerate points using
+# cosine similarity. But not so sure
+# it worked that well
 # Not sure whether I will use it or not, so I will leave it here
 def agglomerate(coords):
     lon_lat_coords = np.array([[coord[1], coord[2]] for coord in coords])
@@ -257,3 +392,26 @@ def agglomerate(coords):
     #dendrogram(Z, leaf_rotation=0, orientation='right', leaf_font_size=8, labels=np.array([i for i in range(data.shape[0])]))
     #plt.show()
     """
+
+def main():
+    '''
+    Test individual functions
+    :return:
+    '''
+
+    coords = [[-77.437765, 43.13831666666667, 0.0], [-77.43776166666666, 43.13832333333333, 0.529],
+              [-77.43776166666666, 43.138326666666664, 0.99], [-77.43776, 43.13833, 1.703],
+              [-77.43775833333333, 43.13833666666667, 2.532], [-77.43775333333333, 43.138345, 3.004],
+              [-77.43775, 43.138353333333335, 3.534], [-77.43774833333333, 43.13836333333333, 3.821],
+              [-77.43774666666667, 43.138371666666664, 4.109], [-77.43774666666667, 43.13838166666667, 4.408], [-77.43774833333333, 43.13839, 4.88], [-77.43774666666667, 43.138398333333335, 4.892], [-77.437745, 43.13840666666667, 4.938], [-77.43774333333333, 43.138416666666664, 5.03], [-77.43774333333333, 43.138425, 5.548], [-77.43774166666667, 43.138435, 5.997], [-77.43774, 43.13844666666667, 6.296], [-77.43774, 43.13845666666667, 6.791], [-77.43773833333333, 43.138468333333336, 6.929], [-77.43773666666667, 43.13848, 6.779], [-77.437735, 43.13849166666667, 6.791], [-77.437735, 43.13850333333333, 6.549], [-77.43773333333333, 43.138515, 6.319], [-77.43773166666666, 43.138526666666664, 5.836], [-77.43773, 43.13853666666667, 5.778], [-77.43773, 43.13854666666667, 5.352], [-77.43772833333334, 43.138555, 4.477], [-77.43772833333334, 43.13856166666667, 3.787], [-77.43772666666666, 43.13856833333333, 3.384], [-77.43772333333334, 43.13857333333333, 2.97], [-77.43772166666666, 43.138578333333335, 2.993], [-77.43771833333334, 43.13858333333334, 3.062], [-77.437715, 43.13858666666667, 3.349], [-77.43771, 43.13859, 3.718], [-77.43770333333333, 43.13859333333333, 3.557], [-77.43769833333333, 43.138598333333334, 3.488], [-77.43769166666667, 43.1386, 3.407], [-77.43768666666666, 43.1386, 3.338], [-77.43768, 43.138601666666666, 3.338], [-77.43767166666666, 43.138603333333336, 3.407], [-77.437665, 43.138603333333336, 2.843], [-77.43765833333333, 43.138603333333336, 2.049], [-77.43765666666667, 43.138603333333336, 1.105], [-77.43765833333333, 43.138601666666666, 1.911], [-77.43766333333333, 43.138601666666666, 3.718], [-77.43767333333334, 43.138601666666666, 5.974], [-77.43768833333333, 43.138601666666666, 8.092], [-77.43771, 43.138601666666666, 10.301], [-77.43773333333333, 43.138603333333336, 12.304], [-77.43776333333334, 43.138605, 14.468], [-77.43779666666667, 43.13860666666667, 16.333], [-77.43783333333333, 43.13861, 17.771], [-77.43787166666667, 43.138616666666664, 19.176],
+              [-77.43791333333333, 43.138623333333335, 20.223], [-77.437955, 43.13863, 21.363],
+              [-77.43800166666666, 43.13863833333333, 22.583], [-77.43805, 43.13865, 22.916],
+              [-77.43809833333333, 43.138661666666664, 23.975], [-77.43814833333333, 43.138675, 24.654],
+              [-77.43819666666667, 43.138691666666666, 24.758], [-77.43824666666667, 43.13871, 25.598],
+              [-77.438295, 43.13873, 26.197], [-77.438345, 43.13875, 26.738],
+              [-77.43839666666666, 43.13877333333333, 27.233],
+              [-77.43844666666666, 43.138796666666664, 27.808]]
+
+    print(find_angle_between_pts(coords, 10)[:40])
+
+main()
