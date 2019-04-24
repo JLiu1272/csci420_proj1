@@ -35,23 +35,42 @@ def convert_to_kml(file_name, dfs, route_files):
     kml = simplekml.Kml()
 
     complete_dfs = pd.DataFrame()
+
+    # Stores the agglomerated paths
+    # For each path, create a separate
+    # list, so we do not end up with
+    # lines that are on non-paths
     segments = []
+
+    # Raw segments are the paths that
+    # have no yet been clustered. The problem
+    # with agglomerating paths is that
+    # it does not preserve the order
+    # hence when doing turns classification
+    # the order would be helpful for determining
+    # when car turns
+    raw_segments = []
+
 
     # Merge all of the individual dataframe
     # containing a path from each file
     # into 1 single DataFrame Object
     for index, df in enumerate(dfs):
         complete_dfs = pd.concat([complete_dfs, df], axis=0)
-        #segment = []
-        #for i2 in range(df.shape[0]):
-        #    segment.append((df['lon'][i2],df['lat'][i2],df['speed'][i2]))
-        #segments.append(segment)
+        raw_segment = []
+
+        # Extract the raw points, and
+        # create a list out of it
+        # so we can do left/right turn classification
+        for i2 in range(df.shape[0]):
+            raw_segment.append([df['lon'][i2],df['lat'][i2],df['speed'][i2]])
+        raw_segments += raw_segment
 
         medoids, clusters = DBScan_Cluster(df.values)
         
         # Create a placemark for every stop sign found
         for medoid_id in range(1, len(medoids)):
-            print(medoids['lon'][medoid_id])
+            #print(medoids['lon'][medoid_id])
             # Only create a stop sign if the cluster
             # is not empty
             pnt = kml.newpoint(name="Stop Light")
@@ -59,8 +78,20 @@ def convert_to_kml(file_name, dfs, route_files):
             pnt.style.labelstyle.color = simplekml.Color.yellow
             pnt.style.labelstyle.scale = 1
 
-    # Use DBScan to find potential stopping
-    # points
+    # Classify the turns
+    turns = classify_turn(raw_segments)
+    print("Number of turns found")
+    print(len(turns))
+    print(turns[:10])
+
+    # Create a turn point
+    # on the GPS Data
+    for turn in turns:
+        pnt = kml.newpoint(name="Turn")
+        pnt.coords = [turn]
+        pnt.style.labelstyle.color = simplekml.Color.red
+        pnt.style.labelstyle.scale = 1
+
     print("Starting K-Means")
     # Run K-Means to merge points that are
     # next to each other. This is to
@@ -73,8 +104,6 @@ def convert_to_kml(file_name, dfs, route_files):
         segments.append([(kmeans_clusters['lon'][index], kmeans_clusters['lat'][index], kmeans_clusters['speed'][index])])
         #complete_dfs = pd.concat([complete_dfs, cluster], axis=0)
 
-    #sorted_segments = sort_points(segments)
-    #print(sorted_segments[:10])
     print(len(segments))
     #print(segments[:10])
 
@@ -83,11 +112,13 @@ def convert_to_kml(file_name, dfs, route_files):
     # every possible points. There were routes
     # that didn't make sense
     # so for every path, create a new linestring object
-    for idx, segment in enumerate(segments):
+    for idx, segment in enumerate(raw_segments):
         # Set Route Name
         route_name = 'Route '
 
-        lin = kml.newlinestring(name=route_name, coords=segment)
+        # Creates a linestring object
+        # Sets it to yellow, with a size of 5
+        lin = kml.newlinestring(name=route_name, coords=[segment])
         lin.style.linestyle.color = simplekml.Color.yellow
         lin.style.linestyle.width = 5
         lin.altitudemode = simplekml.AltitudeMode.relativetoground
