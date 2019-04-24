@@ -85,7 +85,7 @@ def convert_to_kml(file_name, dfs, route_files):
     print(turns[:10])
 
     # Create a turn point
-    # on the GPS Data 
+    # on the GPS Data
     for turn in turns:
         pnt = kml.newpoint(name="Turn")
         pnt.coords = [turn]

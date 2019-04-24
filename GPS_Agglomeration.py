@@ -395,7 +395,9 @@ def agglomerate(coords):
 
 def main():
     '''
-    Test individual functions
+    Test individual functions.
+    I recommend using this to test the
+    turn classifier. 
     :return:
     '''
 
