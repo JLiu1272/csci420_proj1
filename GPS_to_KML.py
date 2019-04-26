@@ -82,8 +82,7 @@ def convert_to_kml(file_name, dfs, route_files):
             pnt.style.labelstyle.scale = 1
 
     # Classify the turns
-    """
-    turns = classify_turn(raw_segments)
+    turns = classify_turn(complete_dfs)
     print("Number of turns found")
     print(len(turns))
     print(turns[:10])
@@ -91,18 +90,21 @@ def convert_to_kml(file_name, dfs, route_files):
     # Create a turn point
     # on the GPS Data
     for turn in turns:
-        pnt = kml.newpoint(name="Turn")
-        pnt.coords = [turn]
+        if not turn[-1]:
+            pnt = kml.newpoint(name="Left Turn")
+        else:
+            pnt = kml.newpoint(name="Right Turn")
+        pnt.coords = [[turn[0], turn[1], turn[2]]]
         pnt.style.labelstyle.color = simplekml.Color.red
         pnt.style.labelstyle.scale = 1
-    """
 
+    """
     print("Starting K-Means")
     # Run K-Means to merge points that are
     # next to each other. This is to
     # resolve the issue with multiple GPS Data having
     # very similar paths, but due to DOS, it is slightly off
-    kmeans_clusters = k_means(complete_dfs.values, 5000)
+    kmeans_clusters = k_means(complete_dfs.values, 200)
 
     # For each medoid found, add it to the full segments
     for index in range(1, kmeans_clusters.shape[0]):
@@ -128,6 +130,7 @@ def convert_to_kml(file_name, dfs, route_files):
         lin.style.linestyle.width = 5
         lin.altitudemode = simplekml.AltitudeMode.relativetoground
         lin.extrude = 1
+    """
 
     # Save the final KML File
     if file_name.__contains__('/'):

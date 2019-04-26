@@ -304,94 +304,57 @@ def turn_classifier(coord):
                 return False
 
 def classify_turn(coords):
-    '''
-    The main function to classify
-    the turns.
-    :param coords:
-    :return:
-    '''
-    n_space = 5
+    #unit_vector = lambda vector : vector / np.linalg.norm(vector)
+    #angle_between = lambda v1, v2: np.arccos(np.clip(np.dot(unit_vector(v1), unit_vector(v2)), -1.0, 1.0))
+    coords = coords.values.tolist()
 
-    # This function will add the angle, change in speed, and
-    # mode of speed change (i.e acceleration, decceleration, neutral)
-    # to the respective point
-    bearings_added_coords = find_angle_between_pts(coords, n_space)
+    #Have to fix lat and lon mixup here...
+    for idx in range(len(coords)):
+        lat = coords[idx][1]
+        lon = coords[idx][0]
+        coords[idx][0] = lat
+        coords[idx][1] = lon
 
-    # A list to store the GPS points
-    # that it thinks is a turn
-    classified_turns = []
-    print("Starting to classify turns....")
+    angle_between = lambda v1_lat, v1_lon, v2_lat, v2_lon: round(math.degrees(math.atan2(v2_lat - v1_lat, math.cos(math.pi / 180 * v1_lat) * (v2_lon - v1_lon))), 2)
 
-    # Traverse through every coordinate point
-    for idx in range(n_space, len(coords), n_space):
+    # Get acceleration between this point and last
+    for idx in range(1, len(coords)):
+        if idx == 1: coords[idx][3] = 0; continue
+        coords[idx][3] = coords[idx][2] - coords[idx - 1][2]
 
-        # Run the decision tree to see if
-        # this is a turn or not
-        if turn_classifier(bearings_added_coords[idx]):
-            # If classifier thinks it is a turn
-            # Add to the classified_turns list
-            lon, lat, speed = bearings_added_coords[idx][0], \
-                              bearings_added_coords[idx][1], \
-                              bearings_added_coords[idx][2]
-            classified_turns.append((lon, lat, speed))
+    #Get angle between this point and last
+    for idx in range(1, len(coords)):
+        if idx == 1: coords[idx].append(0); continue
+        coords[idx].append(angle_between(coords[idx - 1][0], coords[idx - 1][1], coords[idx][0], coords[idx][1]))
 
-    return classified_turns
+    #Get change (delta) of angle between this point and next
+    #Average with change between the last angle to try to weed out anomalies
+    for idx in range(1, len(coords) -1):
+        if idx == 1 or idx == 2:
+            coords[idx].append(coords[idx][4]); continue
 
-# Garbage function
-# I tried to agglomerate points using
-# cosine similarity. But not so sure
-# it worked that well
-# Not sure whether I will use it or not, so I will leave it here
-def agglomerate(coords):
-    lon_lat_coords = np.array([[coord[1], coord[2]] for coord in coords])
-    Z = linkage(coords, method='single', metric=lambda u,v: cosine_distances(u,v))
-    #dendrogram(Z, leaf_rotation=0, orientation='right', leaf_font_size=8)
-    #plt.show()
+        delta1 = (coords[idx + 1][4] - coords[idx][4])
+        delta2 = (coords[idx + 1][4] - coords[idx - 1][4])
+        #Sometimes these are really weird and anomalous - even when taking the average of two of them
+        #We're just going to completely cut out massive weird numbers
+        if abs(delta1) > 150: delta1 = 0
+        if abs(delta2) > 150: delta2 = 0
 
-    agg_clusters = hierarchy.fcluster(Z, 6000, criterion='distance', R=None, monocrit=None)
+        coords[idx].append((delta1 + delta2) / 2)
 
-    print(agg_clusters)
+    #[coord[3] for coord in coords[3:] if abs(coord[5]) > 2 and coord[3] < -1]
+    turns = []
+    for idx in range(1, len(coords) - 1):
+        if abs(coords[idx][5]) > 20 and abs(coords[idx][5]) < 170:
+            turns.append(coords[idx] + [abs(coords[idx][5]) == coords[idx][5]])
 
-    #freq_table = convert_counter(Counter(agg_clusters))
-    agglom_points = []
+    #plt.scatter([coord[0] for coord in coords[1:-1]], [coord[1] for coord in coords[1:-1]],
+    #            c=KMeans(n_clusters=2, random_state=1).fit(np.array(coords[1:-1])).labels_)
+    plt.scatter([coord[0] for coord in coords[1:-1]], [coord[1] for coord in coords[1:-1]], s= 3, c = [coord[3] for coord in coords[1:-1]], alpha=.8 )
+    plt.scatter([coord[0] for coord in turns], [coord[1] for coord in turns], color="r")
+    plt.show()
 
-    #print(freq_table)
-
-    """
-    for idx, cluster_id in enumerate(agg_clusters):
-        if isinstance(freq_table[cluster_id], int):
-            agglom_points.append(data[idx])
-            freq_table[cluster_id] = data.iloc[idx]
-
-    df = pd.DataFrame(agglom_points)
-    df = df.reset_index(drop=True)
-    print(df.head(10))
-
-    return df
-
-    print(data[:10])
-
-    agglom_points = []
-
-    print("Clusters")
-    print(agg_clusters)
-
-    freq_table = convert_counter(Counter(agg_clusters))
-    print(len(freq_table.keys()))
-
-    for idx, cluster_id in enumerate(agg_clusters):
-        if isinstance(freq_table[cluster_id], int):
-            agglom_points.append(data.iloc[idx])
-            freq_table[cluster_id] = data.iloc[idx]
-
-    df = pd.DataFrame(agglom_points)
-    df = df.reset_index(drop=True)
-    print(df.head(10))
-
-
-    #dendrogram(Z, leaf_rotation=0, orientation='right', leaf_font_size=8, labels=np.array([i for i in range(data.shape[0])]))
-    #plt.show()
-    """
+    return turns
 
 def main():
     '''
