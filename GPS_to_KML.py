@@ -49,7 +49,7 @@ def convert_to_kml(file_name, dfs, route_files):
     # hence when doing turns classification
     # the order would be helpful for determining
     # when car turns
-    raw_segments = []
+    #raw_segments = []
 
 
     # Merge all of the individual dataframe
@@ -57,6 +57,8 @@ def convert_to_kml(file_name, dfs, route_files):
     # into 1 single DataFrame Object
     for index, df in enumerate(dfs):
         complete_dfs = pd.concat([complete_dfs, df], axis=0)
+
+        """
         raw_segment = []
 
         # Extract the raw points, and
@@ -65,6 +67,7 @@ def convert_to_kml(file_name, dfs, route_files):
         for i2 in range(df.shape[0]):
             raw_segment.append([df['lon'][i2],df['lat'][i2],df['speed'][i2]])
         raw_segments += raw_segment
+        """
 
         medoids, clusters = DBScan_Cluster(df.values)
         
@@ -79,6 +82,7 @@ def convert_to_kml(file_name, dfs, route_files):
             pnt.style.labelstyle.scale = 1
 
     # Classify the turns
+    """
     turns = classify_turn(raw_segments)
     print("Number of turns found")
     print(len(turns))
@@ -91,13 +95,14 @@ def convert_to_kml(file_name, dfs, route_files):
         pnt.coords = [turn]
         pnt.style.labelstyle.color = simplekml.Color.red
         pnt.style.labelstyle.scale = 1
+    """
 
     print("Starting K-Means")
     # Run K-Means to merge points that are
     # next to each other. This is to
     # resolve the issue with multiple GPS Data having
     # very similar paths, but due to DOS, it is slightly off
-    kmeans_clusters = k_means(complete_dfs.values, 600)
+    kmeans_clusters = k_means(complete_dfs.values, 5000)
 
     # For each medoid found, add it to the full segments
     for index in range(1, kmeans_clusters.shape[0]):
@@ -112,13 +117,13 @@ def convert_to_kml(file_name, dfs, route_files):
     # every possible points. There were routes
     # that didn't make sense
     # so for every path, create a new linestring object
-    for idx, segment in enumerate(raw_segments):
+    for idx, segment in enumerate(segments):
         # Set Route Name
         route_name = 'Route '
 
         # Creates a linestring object
         # Sets it to yellow, with a size of 5
-        lin = kml.newlinestring(name=route_name, coords=[segment])
+        lin = kml.newlinestring(name=route_name, coords=segment)
         lin.style.linestyle.color = simplekml.Color.yellow
         lin.style.linestyle.width = 5
         lin.altitudemode = simplekml.AltitudeMode.relativetoground
