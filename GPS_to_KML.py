@@ -79,7 +79,7 @@ def convert_to_kml(file_name, dfs, route_files):
             pnt.style.labelstyle.scale = 1
 
     # Classify the turns
-    turns = classify_turn(raw_segments)
+    turns = classify_turn(complete_dfs)
     print("Number of turns found")
     print(len(turns))
     print(turns[:10])
@@ -87,8 +87,11 @@ def convert_to_kml(file_name, dfs, route_files):
     # Create a turn point
     # on the GPS Data
     for turn in turns:
-        pnt = kml.newpoint(name="Turn")
-        pnt.coords = [turn]
+        if not turn[-1]:
+            pnt = kml.newpoint(name="Left Turn")
+        else:
+            pnt = kml.newpoint(name="Right Turn")
+        pnt.coords = [[turn[0], turn[1], turn[2]]]
         pnt.style.labelstyle.color = simplekml.Color.red
         pnt.style.labelstyle.scale = 1
 

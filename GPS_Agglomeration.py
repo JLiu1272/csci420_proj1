@@ -304,12 +304,60 @@ def turn_classifier(coord):
                 return False
 
 def classify_turn(coords):
-    '''
-    The main function to classify
-    the turns.
-    :param coords:
-    :return:
-    '''
+    #unit_vector = lambda vector : vector / np.linalg.norm(vector)
+    #angle_between = lambda v1, v2: np.arccos(np.clip(np.dot(unit_vector(v1), unit_vector(v2)), -1.0, 1.0))
+    coords = coords.values.tolist()
+
+    #Have to fix lat and lon mixup here...
+    for idx in range(len(coords)):
+        lat = coords[idx][1]
+        lon = coords[idx][0]
+        coords[idx][0] = lat
+        coords[idx][1] = lon
+
+    angle_between = lambda v1_lat, v1_lon, v2_lat, v2_lon: round(math.degrees(math.atan2(v2_lat - v1_lat, math.cos(math.pi / 180 * v1_lat) * (v2_lon - v1_lon))), 2)
+
+    # Get acceleration between this point and last
+    for idx in range(1, len(coords)):
+        if idx == 1: coords[idx][3] = 0; continue
+        coords[idx][3] = coords[idx][2] - coords[idx - 1][2]
+
+    #Get angle between this point and last
+    for idx in range(1, len(coords)):
+        if idx == 1: coords[idx].append(0); continue
+        coords[idx].append(angle_between(coords[idx - 1][0], coords[idx - 1][1], coords[idx][0], coords[idx][1]))
+
+    #Get change (delta) of angle between this point and next
+    #Average with change between the last angle to try to weed out anomalies
+    for idx in range(1, len(coords) -1):
+        if idx == 1 or idx == 2:
+            coords[idx].append(coords[idx][4]); continue
+
+        delta1 = (coords[idx + 1][4] - coords[idx][4])
+        delta2 = (coords[idx + 1][4] - coords[idx - 1][4])
+        #Sometimes these are really weird and anomalous - even when taking the average of two of them
+        #We're just going to completely cut out massive weird numbers
+        if abs(delta1) > 150: delta1 = 0
+        if abs(delta2) > 150: delta2 = 0
+
+        coords[idx].append((delta1 + delta2) / 2)
+
+    #[coord[3] for coord in coords[3:] if abs(coord[5]) > 2 and coord[3] < -1]
+    turns = []
+    for idx in range(1, len(coords) - 1):
+        if abs(coords[idx][5]) > 20 and abs(coords[idx][5]) < 170:
+            turns.append(coords[idx] + [abs(coords[idx][5]) == coords[idx][5]])
+
+    #plt.scatter([coord[0] for coord in coords[1:-1]], [coord[1] for coord in coords[1:-1]],
+    #            c=KMeans(n_clusters=2, random_state=1).fit(np.array(coords[1:-1])).labels_)
+    plt.scatter([coord[0] for coord in coords[1:-1]], [coord[1] for coord in coords[1:-1]], s= 3, c = [coord[3] for coord in coords[1:-1]], alpha=.8 )
+    plt.scatter([coord[0] for coord in turns], [coord[1] for coord in turns], color="r")
+    plt.show()
+
+    return turns
+
+'''
+def classify_turn(coords):
     n_space = 5
 
     # This function will add the angle, change in speed, and
@@ -336,7 +384,7 @@ def classify_turn(coords):
             classified_turns.append((lon, lat, speed))
 
     return classified_turns
-
+'''
 # Garbage function
 # I tried to agglomerate points using
 # cosine similarity. But not so sure
